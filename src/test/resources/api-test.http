@@ -1,0 +1,77 @@
+### 1. 创建前置任务 (Task A)
+# @name createParentTask
+POST http://localhost:8080/api/tasks
+Content-Type: application/json
+
+{
+  "title": "学习前端高级特性",
+  "description": "掌握Redis和并发控制",
+  "status": "pending",
+  "priority": "high",
+  "tags": ["前端", "学习"]
+}
+
+> {%
+    // 自动将创建成功的任务 ID 存入全局变量，方便后续依赖
+    client.global.set("parentId", response.body.data.id);
+    client.test("Request executed successfully", function() {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+%}
+
+### 2. 创建后续任务 (Task B，依赖 Task A)
+# @name createChildTask
+POST http://localhost:8080/api/tasks
+Content-Type: application/json
+
+{
+  "title": "提交实习生挑战代码",
+  "description": "完成所有接口并推送到 GitHub",
+  "status": "pending",
+  "priority": "high",
+  "tags": ["面试", "实战"],
+  "dependencies": [{{parentId}}]
+}
+
+> {%
+    client.global.set("childId", response.body.data.id);
+%}
+
+### 3. 获取所有任务列表 (测试分页和排序)
+GET http://localhost:8080/api/tasks?page=0&size=10&sortBy=createdAt&order=desc
+Accept: application/json
+
+### 4. 动态条件过滤 (测试你的 Specification)
+GET http://localhost:8080/api/tasks/filter?priority=high&tag=面试
+Accept: application/json
+
+### 5. 查看任务依赖树 (测试 DAG 逻辑)
+GET http://localhost:8080/api/tasks/{{parentId}}/dependencies
+Accept: application/json
+
+### 6. 核心规则测试：尝试直接完成子任务 (预期失败，抛出依赖异常)
+PUT http://localhost:8080/api/tasks/{{childId}}
+Content-Type: application/json
+
+{
+  "status": "completed"
+}
+
+### 7. 核心规则测试：先完成父任务 (预期成功)
+PUT http://localhost:8080/api/tasks/{{parentId}}
+Content-Type: application/json
+
+{
+  "status": "completed"
+}
+
+### 8. 核心规则测试：再次尝试完成子任务 (父任务已完成，预期成功)
+PUT http://localhost:8080/api/tasks/{{childId}}
+Content-Type: application/json
+
+{
+  "status": "completed"
+}
+
+### 9. 删除任务清理数据
+DELETE http://localhost:8080/api/tasks/{{childId}}
