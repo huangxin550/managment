@@ -427,18 +427,78 @@ git commit -m "refactor: 优化任务查询性能"
 git commit -m "test: 添加任务创建单元测试"
 ```
 
-## 🤝 贡献指南
+### 4. 缓存策略
+- 缓存单个任务详情（`task:{id}`）
+- 24 小时过期时间
+- 更新/删除时自动清除缓存
+- 平衡了性能和数据一致性
 
-欢迎提交 Issue 和 Pull Request！
+### 5. 异常处理
+使用全局异常处理器统一处理：
+- `TaskNotFoundException` (404)
+- `TaskDependencyException` (409)
+- 参数验证异常 (400)
 
-## 📄 许可证
+## Challenges & Solutions
 
-MIT License
+### Challenge 1: 任务依赖循环检测
+**Problem:** 用户可能创建循环依赖（A→B→C→A）
 
-## 👨‍💻 作者
+**Solution:**
+- 在构建依赖树时使用 `visited` 集合记录已访问节点
+- 检测到循环时跳过该节点，避免无限递归
+- 删除任务时检查是否有其他任务依赖，防止破坏依赖关系
 
-Task Management System - Built with ❤️ using Spring Boot
+### Challenge 2: 依赖约束验证
+**Problem:** 完成任务时必须确保所有依赖任务已完成
+
+**Solution:**
+- 在更新任务状态时检查依赖约束
+- 如果存在未完成的依赖任务，抛出 `TaskDependencyException`
+- 提供清晰的错误信息，列出未完成的依赖任务 ID
+
+### Challenge 3: 多条件组合筛选
+**Problem:** 需要支持状态、优先级、标签的任意组合筛选
+
+**Solution:**
+- 在 Repository 中定义多个查询方法
+- 根据参数组合动态选择对应的查询方法
+- 使用 Spring Data JPA 的方法命名规则简化查询实现
+
+### Challenge 4: 性能优化
+**Problem:** 大量任务数据时查询性能下降
+
+**Solution:**
+- 添加 Redis 缓存层，减少数据库查询
+- 为常用查询字段添加数据库索引
+- 使用分页查询避免全表扫描
+- 配置 HikariCP 连接池优化数据库连接
+
+## Future Improvements
+
+### 短期改进
+- [ ] 添加单元测试和集成测试
+- [ ] 实现用户认证和授权（JWT）
+- [ ] 添加任务截止时间字段和提醒功能
+- [ ] 支持任务分类/项目组
+
+### 中期改进
+- [ ] 实现 WebSocket 实时通知
+- [ ] 添加任务统计和报表功能
+- [ ] 支持任务附件上传
+- [ ] 实现任务评论/讨论功能
+
+### 长期改进
+- [ ] 微服务架构拆分（用户服务、任务服务、通知服务）
+- [ ] 消息队列异步处理（RabbitMQ/Kafka）
+- [ ] Elasticsearch 全文搜索引擎
+- [ ] 水平扩展支持（数据库分片、读写分离）
+- [ ] Docker 容器化部署
+- [ ] CI/CD 自动化部署流程
+
+## Time Spent
+Approximately 8 hours
 
 ---
 
-**注意**: 使用前请确保 MySQL 和 Redis 服务已正常启动。
+**Note:** 使用前请确保 MySQL 和 Redis 服务已正常启动。
